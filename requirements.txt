@@ -1,0 +1,4 @@
+# SuperCaptioner/requirements.txt
+transformers
+google-generativeai
+Pillow
