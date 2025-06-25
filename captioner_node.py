@@ -16,7 +16,7 @@ def get_blip_model(device, torch_dtype):
         print("SuperCaptioner: Loading BLIP model...")
         from transformers import BlipProcessor, BlipForConditionalGeneration
         model_id = "Salesforce/blip-image-captioning-large"
-        processor = BlipProcessor.from_pretrained(model_id)
+        processor = BlipProcessor.from_pretrained(model_id,use_fast=True)
         model = BlipForConditionalGeneration.from_pretrained(model_id, torch_dtype=torch_dtype)
         loaded_models["blip"] = {"model": model, "processor": processor}
         print("SuperCaptioner: BLIP model loaded.")
