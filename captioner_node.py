@@ -49,8 +49,7 @@ class SuperCaptionerNode:
         s.MODEL_CHOICES = [
             "local: blip-large", 
             "google: gemini-2.0-flash",
-            "google: gemini-1.5-pro", # 增加一個選項作為範例
-            "google: gemini-1.0-pro-vision"
+            "google: gemini-2.0-flash-lite" # 增加一個選項作為範例
         ]
         return {
             "required": {
