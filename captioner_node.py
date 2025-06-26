@@ -79,7 +79,7 @@ class SuperCaptionerNode:
                 print(f"SuperCaptioner (BLIP) Error: {e}")
                 return (f"BLIP Error: {e}",)
 
-        elif model_choice == "gemini-pro-vision":
+        elif model_choice == "gemini-1.5-flash":
             # --- Gemini 處理邏輯 ---
             if not google_api_key or google_api_key.strip() == "":
                 # 優先從環境變數讀取，增加安全性
