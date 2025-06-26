@@ -5,33 +5,34 @@ from PIL import Image
 import numpy as np
 import comfy.model_management as model_management
 import os
+import logging # 1. 導入 logging 模組
+
+# 2. 設定一個專屬於此模組的 logger
+#    使用 __name__ 可以讓日誌記錄器自動獲得 "captioner_node" 這個名字，方便追蹤。
+logger = logging.getLogger(__name__)
 
 # --- 全域變數和輔助函式 ---
-# 儲存已加載模型的字典，避免重複加載
 loaded_models = {}
 
 def get_blip_model(device, torch_dtype):
     """延遲加載 BLIP 模型"""
     if "blip" not in loaded_models:
-        print("SuperCaptioner: Loading BLIP model...")
-        # 修正 1: 移除 use_fast=True，它在新版 transformers 中已不推薦，且可能導致不一致
-        # BlipProcessor 會自動處理好這些細節
+        # 將 print 改為 logger.info
+        logger.info("SuperCaptioner: Loading BLIP model...")
         from transformers import BlipProcessor, BlipForConditionalGeneration
         model_id = "Salesforce/blip-image-captioning-large"
         
-        # 將模型和處理器加載到 CPU，在使用時再轉移到 GPU，以更好地管理 VRAM
         processor = BlipProcessor.from_pretrained(model_id)
         model = BlipForConditionalGeneration.from_pretrained(model_id, torch_dtype=torch_dtype)
         
         loaded_models["blip"] = {"model": model, "processor": processor}
-        print("SuperCaptioner: BLIP model loaded.")
+        logger.info("SuperCaptioner: BLIP model loaded.")
     return loaded_models["blip"]
 
 def tensor_to_pil(image_tensor):
     """將 ComfyUI 的 Tensor 轉換為 PIL 影像列表"""
     pil_images = []
     for img in image_tensor:
-        # 確保張量在 CPU 上才能轉換為 numpy
         img_np = (img.cpu().numpy() * 255).astype(np.uint8)
         pil_images.append(Image.fromarray(img_np))
     return pil_images
@@ -44,12 +45,11 @@ class SuperCaptionerNode:
 
     @classmethod
     def INPUT_TYPES(s):
-        # 修正 2: 讓下拉選單的選項名稱更具描述性且唯一，避免混淆
-        # 我們將使用這些字串作為清晰的標識符
+        # 修正：使用更標準的 Gemini 模型名稱
         s.MODEL_CHOICES = [
             "local: blip-large", 
             "google: gemini-2.0-flash",
-            "google: gemini-2.0-flash-lite" # 增加一個選項作為範例
+            "google: gemini-2.0-flash-lite"
         ]
         return {
             "required": {
@@ -68,32 +68,30 @@ class SuperCaptionerNode:
     CATEGORY = "SuperCaptioner"
 
     def execute(self, image, model_choice, google_api_key="", prompt=""):
-        # 每次執行都從一個空的 caption 列表開始，這可以確保清空舊內容
         captions = []
         pil_images = tensor_to_pil(image)
 
         try:
-            # 修正 3: 使用更清晰的邏輯判斷來選擇模型分支
             if model_choice.startswith("local:"):
                 captions = self.execute_blip(pil_images)
             elif model_choice.startswith("google:"):
-                # 從選項字串中提取出真正的模型名稱
-                model_name = model_choice.split("google: ")[1]
+                model_name = model_choice.split("google: ")[1].strip()
                 captions = self.execute_gemini(pil_images, model_name, google_api_key, prompt)
             else:
                 return (f"Error: Unknown model choice '{model_choice}'",)
         
         except Exception as e:
-            # 增加一個頂層的異常捕獲，防止整個節點崩潰
-            error_message = f"An unexpected error occurred: {e}"
-            print(f"SuperCaptioner Error: {error_message}")
-            return (error_message,)
+            # 將 print 改為 logger.error，用於記錄嚴重錯誤
+            # exc_info=True 會自動記錄完整的錯誤堆疊追蹤，對除錯非常有幫助
+            logger.error(f"SuperCaptioner Error: An unexpected error occurred: {e}", exc_info=True)
+            return (f"An unexpected error occurred: {e}",)
 
-        # 修正 4: 在返回前，確保最終結果是一個格式正確的字串
         final_caption = "\n".join(captions).strip()
-        print(f"SuperCaptioner Generated: {final_caption}")
         
-        # ComfyUI 的輸出需要是一個包含元組的元組
+        # 3. 移除最後的 print 語句
+        # 替換為 DEBUG 等級的日誌，預設不會顯示，但可以在開發時啟用
+        logger.debug(f"SuperCaptioner Generated: {final_caption}")
+        
         return (final_caption,)
 
     def execute_blip(self, pil_images):
@@ -106,7 +104,6 @@ class SuperCaptionerNode:
         generated_ids = model.generate(**inputs, max_new_tokens=75)
         blip_captions = processor.batch_decode(generated_ids, skip_special_tokens=True)
         
-        # VRAM 管理：用完後立即釋放
         model.to("cpu")
         model_management.soft_empty_cache()
         
@@ -117,13 +114,11 @@ class SuperCaptionerNode:
         if not api_key or api_key.strip() == "":
             api_key = os.environ.get('GOOGLE_API_KEY', '')
             if not api_key:
-                # 修正 5: 拋出異常而不是直接返回，讓頂層 try-except 捕獲
                 raise ValueError("Google API Key is required. Please input it or set GOOGLE_API_KEY env var.")
         
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         
-        # 使用傳入的模型名稱
         model = genai.GenerativeModel(model_name)
         
         gemini_captions = []
