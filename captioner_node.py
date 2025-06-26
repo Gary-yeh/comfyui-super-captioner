@@ -42,7 +42,7 @@ class SuperCaptionerNode:
         return {
             "required": {
                 "image": ("IMAGE",),
-                "model_choice": (["blip-large", "gemini-pro-vision"],),
+                "model_choice": (["blip-large", "gemini-1.5-flash"],),
             },
             "optional": {
                 # Gemini 需要的額外輸入
