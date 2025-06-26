@@ -90,7 +90,7 @@ class SuperCaptionerNode:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=google_api_key)
-                model = genai.GenerativeModel('gemini-pro-vision')
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 for pil_image in pil_images:
                     response = model.generate_content([prompt, pil_image])
