@@ -48,6 +48,7 @@ class SuperCaptionerNode:
         # 修正：使用更標準的 Gemini 模型名稱
         s.MODEL_CHOICES = [
             "local: blip-large", 
+            "google: gemini-2.5-flash",
             "google: gemini-2.0-flash",
             "google: gemini-2.0-flash-lite"
         ]
